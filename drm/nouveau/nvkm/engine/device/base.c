@@ -1990,6 +1990,7 @@ nv120_chipset = {
 	.dma = gf119_dma_new,
 	.fifo = gm200_fifo_new,
 	.sw = gf100_sw_new,
+	.secboot = gm200_secboot_new,
 };
 
 static const struct nvkm_device_chip
@@ -2021,6 +2022,7 @@ nv124_chipset = {
 	.fifo = gm200_fifo_new,
 	.gr = gm204_gr_new,
 	.sw = gf100_sw_new,
+	.secboot = gm200_secboot_new,
 };
 
 static const struct nvkm_device_chip
@@ -2052,6 +2054,7 @@ nv126_chipset = {
 	.fifo = gm200_fifo_new,
 	.gr = gm206_gr_new,
 	.sw = gf100_sw_new,
+	.secboot = gm200_secboot_new,
 };
 
 static const struct nvkm_device_chip
