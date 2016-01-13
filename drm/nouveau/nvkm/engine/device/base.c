@@ -2122,6 +2122,7 @@ nvkm_device_subdev(struct nvkm_device *device, int index)
 	_(THERM  , device->therm  , &device->therm->subdev);
 	_(TIMER  , device->timer  , &device->timer->subdev);
 	_(VOLT   , device->volt   , &device->volt->subdev);
+	_(SECBOOT, device->secboot, &device->secboot->subdev);
 #undef _
 	default:
 		engine = nvkm_device_engine(device, index);
@@ -2571,6 +2572,7 @@ nvkm_device_ctor(const struct nvkm_device_func *func,
 		_(NVKM_SUBDEV_THERM  ,   therm);
 		_(NVKM_SUBDEV_TIMER  ,   timer);
 		_(NVKM_SUBDEV_VOLT   ,    volt);
+		_(NVKM_SUBDEV_SECBOOT, secboot);
 		_(NVKM_ENGINE_BSP    ,     bsp);
 		_(NVKM_ENGINE_CE0    ,   ce[0]);
 		_(NVKM_ENGINE_CE1    ,   ce[1]);
