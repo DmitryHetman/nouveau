@@ -2075,6 +2075,7 @@ nv12b_chipset = {
 	.fifo = gm20b_fifo_new,
 	.gr = gm20b_gr_new,
 	.sw = gf100_sw_new,
+	.secboot = gm20b_secboot_new,
 };
 
 static int
