@@ -5,6 +5,8 @@
 
 #include "nouveau_drm.h"
 
+#include <linux/version.h>
+
 struct nouveau_framebuffer {
 	struct drm_framebuffer base;
 	struct nouveau_bo *nvbo;

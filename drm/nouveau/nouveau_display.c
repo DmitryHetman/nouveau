@@ -42,6 +42,8 @@
 #include <nvif/cl0046.h>
 #include <nvif/event.h>
 
+#include <linux/version.h>
+
 static int
 nouveau_display_vblank_handler(struct nvif_notify *notify)
 {
@@ -254,7 +256,11 @@ nouveau_framebuffer_init(struct drm_device *dev,
 	struct drm_framebuffer *fb = &nv_fb->base;
 	int ret;
 
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(4,5,0)
 	drm_helper_mode_fill_fb_struct(fb, mode_cmd);
+#else
+	drm_helper_mode_fill_fb_struct(fb, (struct drm_mode_fb_cmd2 *)mode_cmd);
+#endif
 	nv_fb->nvbo = nvbo;
 
 	ret = drm_framebuffer_init(dev, fb, &nouveau_framebuffer_funcs);
@@ -273,7 +279,11 @@ nouveau_framebuffer_init(struct drm_device *dev,
 static struct drm_framebuffer *
 nouveau_user_framebuffer_create(struct drm_device *dev,
 				struct drm_file *file_priv,
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(4,5,0)
 				const struct drm_mode_fb_cmd2 *mode_cmd)
+#else
+				struct drm_mode_fb_cmd2 *mode_cmd)
+#endif
 {
 	struct nouveau_framebuffer *nouveau_fb;
 	struct drm_gem_object *gem;
@@ -840,6 +850,7 @@ nouveau_finish_page_flip(struct nouveau_channel *chan,
 	}
 
 	s = list_first_entry(&fctx->flip, struct nouveau_page_flip_state, head);
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(4,5,0)
 	if (s->event) {
 		if (drm->device.info.family < NV_DEVICE_INFO_V0_TESLA) {
 			drm_arm_vblank_event(dev, s->crtc, s->event);
@@ -854,6 +865,11 @@ nouveau_finish_page_flip(struct nouveau_channel *chan,
 		/* Give up ownership of vblank for page-flipped crtc */
 		drm_vblank_put(dev, s->crtc);
 	}
+#else
+	if (s->event)
+		drm_send_vblank_event(dev, s->crtc, s->event);
+	drm_vblank_put(dev, s->crtc);
+#endif
 
 	list_del(&s->head);
 	if (ps)
