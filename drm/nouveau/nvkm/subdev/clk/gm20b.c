@@ -147,7 +147,10 @@ struct gm20b_clk {
 	const struct gk20a_clk_pllg_params *params;
 	const struct gm20b_pllg_na_params *na_params;
 	struct gm20b_pllg_fused_params fused_params;
-	struct gm20b_gpcpll gpcpll;
+
+	struct gk20a_pll pll;
+	struct gm20b_na_dvfs dvfs;
+	u32 rate;
 
 	struct gk20a_pll last_pll;
 	struct gm20b_na_dvfs last_dvfs;
@@ -283,18 +286,18 @@ found_match:
 			   "no best match for target @ %dKHz on gpc_pll",
 			   target_clk_f);
 
-	   clk->gpcpll.pll.m = best_m;
-	   clk->gpcpll.pll.n = best_n;
-	   clk->gpcpll.pll.pl = best_pl;
+	   clk->pll.m = best_m;
+	   clk->pll.n = best_n;
+	   clk->pll.pl = best_pl;
 
 	target_freq = gm20b_pllg_calc_rate(clk->parent_rate,
-			&clk->gpcpll.pll);
+			&clk->pll);
 	target_freq /= KHZ;
-	   clk->gpcpll.rate = target_freq * 2;
+	   clk->rate = target_freq * 2;
 
 	nvkm_debug(subdev, "actual target freq %d KHz, M %d, N %d, PL %d(div%d)\n",
-		 target_freq, clk->gpcpll.pll.m, clk->gpcpll.pll.n,
-		           clk->gpcpll.pll.pl, pl_to_div(clk->gpcpll.pll.pl));
+		 target_freq, clk->pll.m, clk->pll.n,
+		           clk->pll.pl, pl_to_div(clk->pll.pl));
 	return 0;
 }
 
@@ -304,7 +307,7 @@ gm20b_clk_calc_dfs_det_coeff(struct gm20b_clk *clk, int uv)
 	struct nvkm_subdev *subdev = &clk->base.subdev;
 	const struct gm20b_pllg_na_params *pn = clk->na_params;
 	struct gm20b_pllg_fused_params *fp = &clk->fused_params;
-	struct gm20b_na_dvfs *d = &clk->gpcpll.dvfs;
+	struct gm20b_na_dvfs *d = &clk->dvfs;
 	u32 coeff;
 
 	/* coeff = slope * voltage + offset */
@@ -797,9 +800,9 @@ gm20b_clk_config_dvfs(struct gm20b_clk *clk)
 	int uv = nvkm_volt_get_voltage_by_id(volt, clk->vid);
 
 	gm20b_clk_calc_dfs_det_coeff(clk, uv);
-	gm20b_clk_calc_dfs_ndiv(clk, &clk->gpcpll.dvfs, uv,
-			                         clk->gpcpll.pll.n);
-	   clk->gpcpll.dvfs.uv = uv;
+	gm20b_clk_calc_dfs_ndiv(clk, &clk->dvfs, uv,
+			                         clk->pll.n);
+	   clk->dvfs.uv = uv;
 	nvkm_trace(subdev, "%s(): uv=%d\n", __func__, uv);
 }
 
@@ -843,8 +846,13 @@ _gm20b_pllg_program_na_mnp(struct gm20b_clk *clk,
 	 * We don't have to re-program the DVFS because the voltage keeps the
 	 * same value (and we already have the same coeffients in hardware).
 	 */
-	if (!allow_slide || clk->last_dvfs.uv == gpcpll->dvfs.uv)
-		return _gm20b_pllg_program_mnp(clk, &clk->gpcpll, allow_slide);
+	if (!allow_slide || clk->last_dvfs.uv == gpcpll->dvfs.uv) {
+		struct gm20b_gpcpll gpcpll;
+		gpcpll.pll = clk->pll;
+		gpcpll.dvfs = clk->dvfs;
+		gpcpll.rate = clk->rate;
+		return _gm20b_pllg_program_mnp(clk, &gpcpll, allow_slide);
+	}
 
 	/* Before setting coefficient to 0, switch to safe frequency first */
 	if (cur_rate > clk->safe_fmax_vmin) {
@@ -856,11 +864,13 @@ _gm20b_pllg_program_na_mnp(struct gm20b_clk *clk,
 			safe_gpcpll.pll = clk->last_pll;
 			safe_gpcpll.dvfs = clk->last_dvfs;
 			safe_gpcpll.rate = clk->last_rate;
-			safe_gpcpll.dvfs.uv = clk->gpcpll.dvfs.uv;
+			safe_gpcpll.dvfs.uv = clk->dvfs.uv;
 		}
 		/* voltage is decreasing */
 		else {
-			safe_gpcpll = clk->gpcpll;
+			safe_gpcpll.pll = clk->pll;
+			safe_gpcpll.dvfs = clk->dvfs;
+			safe_gpcpll.rate = clk->rate;
 			safe_gpcpll.dvfs = clk->last_dvfs;
 		}
 
@@ -889,10 +899,14 @@ static int
 gm20b_clk_program_gpcpll(struct gm20b_clk *clk)
 {
 	int err;
+	struct gm20b_gpcpll gpcpll;
+	gpcpll.pll = clk->pll;
+	gpcpll.dvfs = clk->dvfs;
+	gpcpll.rate = clk->rate;
 
-	err = _gm20b_pllg_program_mnp(clk, &clk->gpcpll, true);
+	err = _gm20b_pllg_program_mnp(clk, &gpcpll, true);
 	if (err)
-		err = _gm20b_pllg_program_mnp(clk, &clk->gpcpll, false);
+		err = _gm20b_pllg_program_mnp(clk, &gpcpll, false);
 
 	return err;
 }
@@ -901,10 +915,14 @@ static int
 gm20b_clk_program_na_gpcpll(struct gm20b_clk *clk)
 {
 	int err;
+	struct gm20b_gpcpll gpcpll;
+	gpcpll.pll = clk->pll;
+	gpcpll.dvfs = clk->dvfs;
+	gpcpll.rate = clk->rate;
 
-	err = _gm20b_pllg_program_na_mnp(clk, &clk->gpcpll, true);
+	err = _gm20b_pllg_program_na_mnp(clk, &gpcpll, true);
 	if (err)
-		err = _gm20b_pllg_program_na_mnp(clk, &clk->gpcpll, false);
+		err = _gm20b_pllg_program_na_mnp(clk, &gpcpll, false);
 
 	return err;
 
@@ -994,7 +1012,10 @@ gm20b_pllg_disable(struct gm20b_clk *clk)
 	/* slide to VCO min */
 	val = nvkm_rd32(device, GPCPLL_CFG);
 	if (val & GPCPLL_CFG_ENABLE) {
-		struct gm20b_gpcpll gpcpll = clk->gpcpll;
+		struct gm20b_gpcpll gpcpll;
+		gpcpll.pll = clk->pll;
+		gpcpll.dvfs = clk->dvfs;
+		gpcpll.rate = clk->rate;
 
 		gk20a_pllg_read_mnp(&clk->base, &gpcpll.pll);
 		gpcpll.pll.n = DIV_ROUND_UP(gpcpll.pll.m * clk->params->min_vco,
@@ -1110,8 +1131,8 @@ gm20b_clk_read(struct nvkm_clk *base, enum nv_clk_src src)
 	case nv_clk_src_crystal:
 		return device->crystal;
 	case nv_clk_src_gpc:
-		gk20a_pllg_read_mnp(&clk->base, &clk->gpcpll.pll);
-		return gm20b_pllg_calc_rate(clk->parent_rate, &clk->gpcpll.pll) /
+		gk20a_pllg_read_mnp(&clk->base, &clk->pll);
+		return gm20b_pllg_calc_rate(clk->parent_rate, &clk->pll) /
 			GM20B_CLK_GPC_MDIV;
 	default:
 		nvkm_error(subdev, "invalid clock source %d\n", src);
@@ -1144,9 +1165,9 @@ gm20b_clk_prog(struct nvkm_clk *base)
 	else
 		ret = gm20b_clk_program_gpcpll(clk);
 
-	clk->last_pll = clk->gpcpll.pll;
-	clk->last_dvfs = clk->gpcpll.dvfs;
-	clk->last_rate = clk->gpcpll.rate;
+	clk->last_pll = clk->pll;
+	clk->last_dvfs = clk->dvfs;
+	clk->last_rate = clk->rate;
 
 	return ret;
 }
@@ -1169,8 +1190,6 @@ gm20b_clk_init(struct nvkm_clk *base)
 	struct gm20b_clk *clk = gm20b_clk(base);
 	struct nvkm_subdev *subdev = &clk->base.subdev;
 	struct nvkm_device *device = subdev->device;
-	struct gm20b_gpcpll *gpcpll = &clk->gpcpll;
-	struct gk20a_pll *pll = &gpcpll->pll;
 	u32 val;
 	int ret;
 
@@ -1178,18 +1197,18 @@ gm20b_clk_init(struct nvkm_clk *base)
 	 * Initial frequency, low enough to be safe at Vmin (default 1/3
 	 * VCO min)
 	 */
-	pll->m = 1;
-	pll->n = DIV_ROUND_UP(clk->params->min_vco, clk->parent_rate / KHZ);
-	pll->pl = DIV_ROUND_UP(clk->params->min_vco, clk->safe_fmax_vmin);
-	pll->pl = max(clk->gpcpll.pll.pl, 3U);
-	gpcpll->rate = (clk->parent_rate / KHZ) * clk->gpcpll.pll.n;
-	gpcpll->rate /= pl_to_div(clk->gpcpll.pll.pl);
-	val = pll->m << GPCPLL_COEFF_M_SHIFT;
-	val |= pll->n << GPCPLL_COEFF_N_SHIFT;
-	val |= pll->pl << GPCPLL_COEFF_P_SHIFT;
+	clk->pll.m = 1;
+	clk->pll.n = DIV_ROUND_UP(clk->params->min_vco, clk->parent_rate / KHZ);
+	clk->pll.pl = DIV_ROUND_UP(clk->params->min_vco, clk->safe_fmax_vmin);
+	clk->pll.pl = max(clk->pll.pl, 3U);
+	clk->rate = (clk->parent_rate / KHZ) * clk->pll.n;
+	clk->rate /= pl_to_div(clk->pll.pl);
+	val = clk->pll.m << GPCPLL_COEFF_M_SHIFT;
+	val |= clk->pll.n << GPCPLL_COEFF_N_SHIFT;
+	val |= clk->pll.pl << GPCPLL_COEFF_P_SHIFT;
 	nvkm_wr32(device, GPCPLL_COEFF, val);
 	nvkm_trace(subdev, "Initial freq=%uKHz(gpc2clk), m=%u, n=%u, pl=%u\n",
-			gpcpll->rate, pll->m, pll->n, pll->pl);
+			clk->rate, clk->pll.m, clk->pll.n, clk->pll.pl);
 
 	/* Set the global bypass control to VCO */
 	nvkm_mask(device, BYPASSCTRL_SYS,
