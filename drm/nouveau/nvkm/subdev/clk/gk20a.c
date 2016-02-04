@@ -50,12 +50,6 @@ static const struct gk20a_clk_pllg_params gk20a_pllg_params = {
 	.min_pl = 1, .max_pl = 32,
 };
 
-struct gk20a_pll {
-	u32 m;
-	u32 n;
-	u32 pl;
-};
-
 struct gk20a_clk {
 	struct nvkm_clk base;
 	const struct gk20a_clk_pllg_params *params;
@@ -63,10 +57,10 @@ struct gk20a_clk {
 	u32 parent_rate;
 };
 
-static void
-gk20a_pllg_read_mnp(struct gk20a_clk *clk, struct gk20a_pll *pll)
+void
+gk20a_pllg_read_mnp(struct nvkm_clk *clk, struct gk20a_pll *pll)
 {
-	struct nvkm_device *device = clk->base.subdev.device;
+	struct nvkm_device *device = clk->subdev.device;
 	u32 val;
 
 	val = nvkm_rd32(device, GPCPLL_COEFF);
@@ -286,22 +280,22 @@ _gk20a_pllg_program_mnp(struct gk20a_clk *clk, bool allow_slide)
 	struct nvkm_subdev *subdev = &clk->base.subdev;
 	struct nvkm_device *device = subdev->device;
 	u32 val, cfg;
-	u32 m_old, pl_old, n_lo;
+	struct gk20a_pll pll;
+	u32 n_lo;
 
 	/* get old coefficients */
+	gk20a_pllg_read_mnp(&clk->base, &pll);
 	val = nvkm_rd32(device, GPCPLL_COEFF);
-	m_old = (val >> GPCPLL_COEFF_M_SHIFT) & MASK(GPCPLL_COEFF_M_WIDTH);
-	pl_old = (val >> GPCPLL_COEFF_P_SHIFT) & MASK(GPCPLL_COEFF_P_WIDTH);
 
 	/* do NDIV slide if there is no change in M and PL */
 	cfg = nvkm_rd32(device, GPCPLL_CFG);
-	if (allow_slide && clk->pll.m == m_old && clk->pll.pl == pl_old &&
+	if (allow_slide && clk->pll.m == pll.m && clk->pll.pl == pll.pl &&
 	    (cfg & GPCPLL_CFG_ENABLE)) {
 		return gk20a_pllg_slide(clk, clk->pll.n);
 	}
 
 	/* slide down to NDIV_LO */
-	n_lo = DIV_ROUND_UP(m_old * clk->params->min_vco,
+	n_lo = DIV_ROUND_UP(pll.m * clk->params->min_vco,
 			    clk->parent_rate / KHZ);
 	if (allow_slide && (cfg & GPCPLL_CFG_ENABLE)) {
 		int ret = gk20a_pllg_slide(clk, n_lo);
@@ -511,7 +505,7 @@ gk20a_clk_read(struct nvkm_clk *base, enum nv_clk_src src)
 	case nv_clk_src_crystal:
 		return device->crystal;
 	case nv_clk_src_gpc:
-		gk20a_pllg_read_mnp(clk, &clk->pll);
+		gk20a_pllg_read_mnp(&clk->base, &clk->pll);
 		return gk20a_pllg_calc_rate(clk) / GK20A_CLK_GPC_MDIV;
 	default:
 		nvkm_error(subdev, "invalid clock source %d\n", src);

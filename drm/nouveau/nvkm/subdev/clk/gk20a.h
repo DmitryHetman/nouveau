@@ -103,4 +103,12 @@ struct gk20a_clk_pllg_params {
 	u32 min_pl, max_pl;
 };
 
+struct gk20a_pll {
+	u32 m;
+	u32 n;
+	u32 pl;
+};
+
+void gk20a_pllg_read_mnp(struct nvkm_clk *clk, struct gk20a_pll *pll);
+
 #endif

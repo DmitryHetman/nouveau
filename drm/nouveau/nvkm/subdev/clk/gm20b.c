@@ -113,12 +113,6 @@ struct gm20b_pllg_fused_params {
 	int uvdet_slope, uvdet_offs;
 };
 
-struct gm20b_pll {
-	u32 m;
-	u32 n;
-	u32 pl;
-};
-
 struct gm20b_na_dvfs {
 	u32 n_int;
 	u32 sdm_din;
@@ -143,7 +137,7 @@ static const struct gm20b_pllg_na_params gm20b_pllg_na_params = {
 };
 
 struct gm20b_gpcpll {
-	struct gm20b_pll pll;
+	struct gk20a_pll pll;
 	struct gm20b_na_dvfs dvfs;
 	u32 rate;	/* gpc2clk */
 };
@@ -176,30 +170,13 @@ static u32 gm20b_pllg_get_interim_pldiv(u32 old, u32 new)
 }
 
 static void
-gm20b_gpcpll_read_mnp(struct gm20b_clk *clk, struct gm20b_pll *pll)
-{
-	struct nvkm_device *device = clk->base.subdev.device;
-	u32 val;
-
-	if (!pll) {
-		WARN(1, "%s() - invalid PLL\n", __func__);
-		return;
-	}
-
-	val = nvkm_rd32(device, GPCPLL_COEFF);
-	pll->m = (val >> GPCPLL_COEFF_M_SHIFT) & MASK(GPCPLL_COEFF_M_WIDTH);
-	pll->n = (val >> GPCPLL_COEFF_N_SHIFT) & MASK(GPCPLL_COEFF_N_WIDTH);
-	pll->pl = (val >> GPCPLL_COEFF_P_SHIFT) & MASK(GPCPLL_COEFF_P_WIDTH);
-}
-
-static void
 gm20b_pllg_read_mnp(struct gm20b_clk *clk)
 {
-	gm20b_gpcpll_read_mnp(clk, &clk->gpcpll.pll);
+	gk20a_pllg_read_mnp(&clk->base, &clk->gpcpll.pll);
 }
 
 static u32
-gm20b_pllg_calc_rate(u32 ref_rate, struct gm20b_pll *pll)
+gm20b_pllg_calc_rate(u32 ref_rate, struct gk20a_pll *pll)
 {
 	u32 rate;
 	u32 divider;
@@ -501,7 +478,7 @@ gm20b_pllg_slide(struct gm20b_clk *clk, struct gm20b_gpcpll *gpcpll)
 {
 	struct nvkm_subdev *subdev = &clk->base.subdev;
 	struct nvkm_device *device = subdev->device;
-	struct gm20b_pll pll = gpcpll->pll;
+	struct gk20a_pll pll = gpcpll->pll;
 	u32 val;
 	u32 nold, sdmold;
 	int ramp_timeout;
@@ -718,7 +695,7 @@ _gm20b_pllg_program_mnp(struct gm20b_clk *clk,
 	int ret;
 
 	/* get old coefficients */
-	gm20b_gpcpll_read_mnp(clk, &gpll.pll);
+	gk20a_pllg_read_mnp(&clk->base, &gpll.pll);
 
 	gpll.dvfs = gpcpll->dvfs;
 
@@ -1019,7 +996,7 @@ gm20b_pllg_disable(struct gm20b_clk *clk)
 	if (val & GPCPLL_CFG_ENABLE) {
 		struct gm20b_gpcpll gpcpll = clk->gpcpll;
 
-		gm20b_gpcpll_read_mnp(clk, &gpcpll.pll);
+		gk20a_pllg_read_mnp(&clk->base, &gpcpll.pll);
 		gpcpll.pll.n = DIV_ROUND_UP(gpcpll.pll.m * clk->params->min_vco,
 				                                clk->parent_rate / KHZ);
 		if (clk->napll_enabled)
@@ -1191,7 +1168,7 @@ gm20b_clk_init(struct nvkm_clk *base)
 	struct nvkm_subdev *subdev = &clk->base.subdev;
 	struct nvkm_device *device = subdev->device;
 	struct gm20b_gpcpll *gpcpll = &clk->gpcpll;
-	struct gm20b_pll *pll = &gpcpll->pll;
+	struct gk20a_pll *pll = &gpcpll->pll;
 	u32 val;
 	int ret;
 
