@@ -169,12 +169,6 @@ static u32 gm20b_pllg_get_interim_pldiv(u32 old, u32 new)
 	return min(old | BIT(ffs(new) - 1), new | BIT(ffs(old) - 1));
 }
 
-static void
-gm20b_pllg_read_mnp(struct gm20b_clk *clk)
-{
-	gk20a_pllg_read_mnp(&clk->base, &clk->gpcpll.pll);
-}
-
 static u32
 gm20b_pllg_calc_rate(u32 ref_rate, struct gk20a_pll *pll)
 {
@@ -1110,7 +1104,7 @@ gm20b_clk_read(struct nvkm_clk *base, enum nv_clk_src src)
 	case nv_clk_src_crystal:
 		return device->crystal;
 	case nv_clk_src_gpc:
-		gm20b_pllg_read_mnp(clk);
+		gk20a_pllg_read_mnp(&clk->base, &clk->gpcpll.pll);
 		return gm20b_pllg_calc_rate(clk->parent_rate, &clk->gpcpll.pll) /
 			GM20B_CLK_GPC_MDIV;
 	default:
