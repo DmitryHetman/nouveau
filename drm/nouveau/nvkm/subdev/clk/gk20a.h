@@ -94,4 +94,13 @@
 #define GPC_BCAST_NDIV_SLOWDOWN_DEBUG_PLL_DYNRAMP_DONE_SYNCED_MASK \
 	    (0x1 << GPC_BCAST_NDIV_SLOWDOWN_DEBUG_PLL_DYNRAMP_DONE_SYNCED_SHIFT)
 
+/* All frequencies in Khz */
+struct gk20a_clk_pllg_params {
+	u32 min_vco, max_vco;
+	u32 min_u, max_u;
+	u32 min_m, max_m;
+	u32 min_n, max_n;
+	u32 min_pl, max_pl;
+};
+
 #endif

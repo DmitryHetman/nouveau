@@ -42,15 +42,6 @@ static const u8 pl_to_div[] = {
 /* p: */ 1, 2, 3, 4, 5, 6, 8, 10, 12, 16, 12, 16, 20, 24, 32,
 };
 
-/* All frequencies in Khz */
-struct gk20a_clk_pllg_params {
-	u32 min_vco, max_vco;
-	u32 min_u, max_u;
-	u32 min_m, max_m;
-	u32 min_n, max_n;
-	u32 min_pl, max_pl;
-};
-
 static const struct gk20a_clk_pllg_params gk20a_pllg_params = {
 	.min_vco = 1000000, .max_vco = 2064000,
 	.min_u = 12000, .max_u = 38000,

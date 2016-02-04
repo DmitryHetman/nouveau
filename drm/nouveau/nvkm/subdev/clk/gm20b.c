@@ -103,26 +103,10 @@ static inline u32 div_to_pl(u32 div)
 	return div;
 }
 
-/* All frequencies in Khz */
-struct gm20b_pllg_params {
-	u32 min_vco, max_vco;
-	u32 min_u, max_u;
-	u32 min_m, max_m;
-	u32 min_n, max_n;
-	u32 min_pl, max_pl;
-	/* NA mode parameters */
+/* NA mode parameters */
+struct gm20b_pllg_na_params {
 	int coeff_slope, coeff_offs;
 	u32 vco_ctrl;
-};
-
-static const struct gm20b_pllg_params gm20b_pllg_params = {
-	.min_vco = 1300000, .max_vco = 2600000,
-	.min_u = 12000, .max_u = 38400,
-	.min_m = 1, .max_m = 255,
-	.min_n = 8, .max_n = 255,
-	.min_pl = 1, .max_pl = 31,
-	.coeff_slope = -165230, .coeff_offs = 214007,
-	.vco_ctrl = 0x7 << 3,
 };
 
 struct gm20b_pllg_fused_params {
@@ -145,6 +129,19 @@ struct gm20b_na_dvfs {
 	int uv;
 };
 
+static const struct gk20a_clk_pllg_params gm20b_pllg_params = {
+	.min_vco = 1300000, .max_vco = 2600000,
+	.min_u = 12000, .max_u = 38400,
+	.min_m = 1, .max_m = 255,
+	.min_n = 8, .max_n = 255,
+	.min_pl = 1, .max_pl = 31,
+};
+
+static const struct gm20b_pllg_na_params gm20b_pllg_na_params = {
+	.coeff_slope = -165230, .coeff_offs = 214007,
+	.vco_ctrl = 0x7 << 3,
+};
+
 struct gm20b_gpcpll {
 	struct gm20b_pll pll;
 	struct gm20b_na_dvfs dvfs;
@@ -153,7 +150,8 @@ struct gm20b_gpcpll {
 
 struct gm20b_clk {
 	struct nvkm_clk base;
-	const struct gm20b_pllg_params *params;
+	const struct gk20a_clk_pllg_params *params;
+	const struct gm20b_pllg_na_params *na_params;
 	struct gm20b_pllg_fused_params fused_params;
 	struct gm20b_gpcpll gpcpll;
 	struct gm20b_gpcpll last_gpcpll;
@@ -329,14 +327,14 @@ static void
 gm20b_clk_calc_dfs_det_coeff(struct gm20b_clk *clk, int uv)
 {
 	struct nvkm_subdev *subdev = &clk->base.subdev;
-	const struct gm20b_pllg_params *p = clk->params;
+	const struct gm20b_pllg_na_params *pn = clk->na_params;
 	struct gm20b_pllg_fused_params *fp = &clk->fused_params;
 	struct gm20b_na_dvfs *d = &clk->gpcpll.dvfs;
 	u32 coeff;
 
 	/* coeff = slope * voltage + offset */
-	coeff = DIV_ROUND_CLOSEST(uv * p->coeff_slope, 1000 * 1000) +
-			p->coeff_offs;
+	coeff = DIV_ROUND_CLOSEST(uv * pn->coeff_slope, 1000 * 1000) +
+			pn->coeff_offs;
 	coeff = DIV_ROUND_CLOSEST(coeff, 1000);
 	coeff = min(coeff, (u32)MASK(GPCPLL_DVFS0_DFS_COEFF_WIDTH));
 	d->dfs_coeff = coeff;
@@ -363,7 +361,7 @@ gm20b_clk_calc_dfs_ndiv(struct gm20b_clk *clk, struct
 	struct nvkm_subdev *subdev = &clk->base.subdev;
 	int n, det_delta;
 	u32 rem, rem_range;
-	const struct gm20b_pllg_params *p = clk->params;
+	const struct gk20a_clk_pllg_params *p = clk->params;
 	struct gm20b_pllg_fused_params *fp = &clk->fused_params;
 
 	det_delta = DIV_ROUND_CLOSEST(uv - fp->uvdet_offs, fp->uvdet_slope);
@@ -940,25 +938,30 @@ gm20b_napll_setup(struct gm20b_clk *clk)
 {
 	struct nvkm_subdev *subdev = &clk->base.subdev;
 	struct nvkm_device *device = subdev->device;
-	const struct gm20b_pllg_params *p = clk->params;
+	const struct gm20b_pllg_na_params *pn = clk->na_params;
 	struct gm20b_pllg_fused_params *fp = &clk->fused_params;
 	bool calibrated = fp->uvdet_slope && fp->uvdet_offs;
 	u32 val;
+	int ret;
 
 	/* Enable NA DVFS */
 	nvkm_mask(device, GPCPLL_DVFS1, GPCPLL_DVFS1_EN_DFS_BIT,
-			GPCPLL_DVFS1_EN_DFS_BIT);
+		  GPCPLL_DVFS1_EN_DFS_BIT);
 
 	/* Set VCO_CTRL */
-	if (p->vco_ctrl)
-		nvkm_mask(device, GPCPLL_CFG3, MASK(GPCPLL_CFG3_VCO_CTRL_WIDTH) <<
-				GPCPLL_CFG3_VCO_CTRL_SHIFT,
-				p->vco_ctrl << GPCPLL_CFG3_VCO_CTRL_SHIFT);
+	if (pn->vco_ctrl)
+		nvkm_mask(device, GPCPLL_CFG3,
+		 MASK(GPCPLL_CFG3_VCO_CTRL_WIDTH) << GPCPLL_CFG3_VCO_CTRL_SHIFT,
+		 pn->vco_ctrl << GPCPLL_CFG3_VCO_CTRL_SHIFT);
 
+	/*
+	 * If calibration parameters are known (either from fuses, or from
+	 * internal calibration on boot) - use them. Internal calibration is
+	 * started anyway; it will complete, but results will not be used.
+	 */
 	if (calibrated)
-		/* Start internal calibration, but ignore the result */
 		nvkm_mask(device, GPCPLL_DVFS1, GPCPLL_DVFS1_EN_DFS_CAL_BIT,
-				GPCPLL_DVFS1_EN_DFS_CAL_BIT);
+			  GPCPLL_DVFS1_EN_DFS_CAL_BIT);
 
 	/* Exit IDDQ mode */
 	nvkm_mask(device, GPCPLL_CFG, GPCPLL_CFG_IDDQ, 0);
@@ -978,11 +981,15 @@ gm20b_napll_setup(struct gm20b_clk *clk)
 	 * No fused calibration data available. Need to do internal
 	 * calibration.
 	 */
-	if (!nvkm_wait_nsec(device, 5000, GPCPLL_DVFS1,
-				GPCPLL_DVFS1_DFS_CAL_DONE_BIT,
-				GPCPLL_DVFS1_DFS_CAL_DONE_BIT)) {
+	nvkm_mask(device, GPCPLL_DVFS1, GPCPLL_DVFS1_EN_DFS_CAL_BIT,
+		  GPCPLL_DVFS1_EN_DFS_CAL_BIT);
+
+	ret = nvkm_wait_usec(device, 5, GPCPLL_DVFS1,
+			     GPCPLL_DVFS1_DFS_CAL_DONE_BIT,
+			     GPCPLL_DVFS1_DFS_CAL_DONE_BIT);
+	if (ret < 0) {
 		nvkm_error(subdev, "%s: DVFS calibration timeout\n", __func__);
-		//return -ETIMEDOUT;
+		return ret;
 	}
 
 	val = nvkm_rd32(device, GPCPLL_CFG3);
@@ -1231,7 +1238,7 @@ gm20b_clk_init(struct nvkm_clk *base)
 static int
 gm20b_clk_init_fused_params(struct gm20b_clk *priv)
 {
-#ifdef CONFIG_TEGRA
+#ifdef CONFIG_ARCH_TEGRA
 	struct gm20b_pllg_fused_params *p = &priv->fused_params;
 	u32 val;
 
@@ -1330,6 +1337,7 @@ gm20b_clk_new(struct nvkm_device *device, int index, struct nvkm_clk **pclk)
 	}
 
 	clk->params = &gm20b_pllg_params;
+	clk->na_params = &gm20b_pllg_na_params;
 	clk->parent_rate = clk_get_rate(tdev->clk);
 
 	ret = nvkm_clk_ctor(&gm20b_clk, device, index, true, &clk->base);
