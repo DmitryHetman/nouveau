@@ -148,7 +148,11 @@ struct gm20b_clk {
 	const struct gm20b_pllg_na_params *na_params;
 	struct gm20b_pllg_fused_params fused_params;
 	struct gm20b_gpcpll gpcpll;
-	struct gm20b_gpcpll last_gpcpll;
+
+	struct gk20a_pll last_pll;
+	struct gm20b_na_dvfs last_dvfs;
+	u32 last_rate;
+
 	u32 parent_rate;
 	int vid;
 	bool napll_enabled;
@@ -831,7 +835,7 @@ _gm20b_pllg_program_na_mnp(struct gm20b_clk *clk,
 	struct nvkm_volt *volt = device->volt;
 	int cur_uv = nvkm_volt_get(volt);
 	int new_uv = nvkm_volt_get_voltage_by_id(volt, clk->vid);
-	u32 cur_rate = clk->last_gpcpll.rate;
+	u32 cur_rate = clk->last_rate;
 
 	gm20b_clk_config_dvfs(clk);
 
@@ -839,7 +843,7 @@ _gm20b_pllg_program_na_mnp(struct gm20b_clk *clk,
 	 * We don't have to re-program the DVFS because the voltage keeps the
 	 * same value (and we already have the same coeffients in hardware).
 	 */
-	if (!allow_slide || clk->last_gpcpll.dvfs.uv == gpcpll->dvfs.uv)
+	if (!allow_slide || clk->last_dvfs.uv == gpcpll->dvfs.uv)
 		return _gm20b_pllg_program_mnp(clk, &clk->gpcpll, allow_slide);
 
 	/* Before setting coefficient to 0, switch to safe frequency first */
@@ -849,13 +853,15 @@ _gm20b_pllg_program_na_mnp(struct gm20b_clk *clk,
 
 		/* voltage is increasing */
 		if (cur_uv < new_uv) {
-			safe_gpcpll = clk->last_gpcpll;
+			safe_gpcpll.pll = clk->last_pll;
+			safe_gpcpll.dvfs = clk->last_dvfs;
+			safe_gpcpll.rate = clk->last_rate;
 			safe_gpcpll.dvfs.uv = clk->gpcpll.dvfs.uv;
 		}
 		/* voltage is decreasing */
 		else {
 			safe_gpcpll = clk->gpcpll;
-			safe_gpcpll.dvfs = clk->last_gpcpll.dvfs;
+			safe_gpcpll.dvfs = clk->last_dvfs;
 		}
 
 		gm20b_clk_calc_safe_dvfs(clk, &safe_gpcpll);
@@ -1138,7 +1144,9 @@ gm20b_clk_prog(struct nvkm_clk *base)
 	else
 		ret = gm20b_clk_program_gpcpll(clk);
 
-	clk->last_gpcpll = clk->gpcpll;
+	clk->last_pll = clk->gpcpll.pll;
+	clk->last_dvfs = clk->gpcpll.dvfs;
+	clk->last_rate = clk->gpcpll.rate;
 
 	return ret;
 }
