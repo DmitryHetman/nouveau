@@ -431,26 +431,6 @@ gm20b_pllg_slide(struct gm20b_clk *clk, struct gm20b_gpcpll *gpcpll)
 	return 0;
 }
 
-static void
-_gm20b_pllg_enable(struct gm20b_clk *clk)
-{
-	struct nvkm_subdev *subdev = &clk->base.base.subdev;
-	struct nvkm_device *device = subdev->device;
-
-	nvkm_mask(device, GPCPLL_CFG, GPCPLL_CFG_ENABLE, GPCPLL_CFG_ENABLE);
-	nvkm_rd32(device, GPCPLL_CFG);
-}
-
-static void
-_gm20b_pllg_disable(struct gm20b_clk *clk)
-{
-	struct nvkm_subdev *subdev = &clk->base.base.subdev;
-	struct nvkm_device *device = subdev->device;
-
-	nvkm_mask(device, GPCPLL_CFG, GPCPLL_CFG_ENABLE, 0);
-	nvkm_rd32(device, GPCPLL_CFG);
-}
-
 static int
 gm20b_clk_program_pdiv_under_bypass(struct gm20b_clk *clk,
 		struct gm20b_gpcpll *gpcpll)
@@ -508,7 +488,7 @@ gm20b_lock_gpcpll_under_bypass(struct gm20b_clk *clk,
 		nvkm_rd32(device, GPCPLL_CFG);
 
 		/* disable running PLL before changing coefficients */
-		_gm20b_pllg_disable(clk);
+		gk20a_pllg_disable(&clk->base);
 	}
 
 	nvkm_trace(subdev, "%s(): m=%d n=%d pl=%d\n", __func__,
@@ -534,7 +514,7 @@ gm20b_lock_gpcpll_under_bypass(struct gm20b_clk *clk,
 		nvkm_wr32(device, GPCPLL_COEFF, val);
 	}
 
-	_gm20b_pllg_enable(clk);
+	gk20a_pllg_enable(&clk->base);
 
 	if (clk->base.napll_enabled) {
 		/* just delay in DVFS mode (lock cannot be used) */
@@ -1059,7 +1039,7 @@ gm20b_clk_fini(struct nvkm_clk *base)
 	/* clear SYNC_MODE before disabling PLL */
 	nvkm_mask(device, GPCPLL_CFG, ~(0x1 << GPCPLL_CFG_SYNC_MODE), 0);
 
-	_gm20b_pllg_disable(clk);
+	gk20a_pllg_disable(&clk->base);
 }
 
 static int
