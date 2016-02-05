@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2014, NVIDIA CORPORATION. All rights reserved.
+ * Copyright (c) 2014-2016, NVIDIA CORPORATION. All rights reserved.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
@@ -37,10 +37,30 @@
 #define MASK(w)	((1 << w) - 1)
 
 
-static const u8 pl_to_div[] = {
+static const u8 _pl_to_div[] = {
 /* PL:   0, 1, 2, 3, 4, 5, 6,  7,  8,  9, 10, 11, 12, 13, 14 */
 /* p: */ 1, 2, 3, 4, 5, 6, 8, 10, 12, 16, 12, 16, 20, 24, 32,
 };
+
+static u32 pl_to_div(u32 pl)
+{
+	if (pl >= ARRAY_SIZE(_pl_to_div))
+		return 1;
+
+	return _pl_to_div[pl];
+}
+
+static u32 div_to_pl(u32 div)
+{
+	u32 pl;
+
+	for (pl = 0; pl < ARRAY_SIZE(_pl_to_div) - 1; pl++) {
+		if (_pl_to_div[pl] >= div)
+			return pl;
+	}
+
+	return ARRAY_SIZE(_pl_to_div) - 1;
+}
 
 static const struct gk20a_clk_pllg_params gk20a_pllg_params = {
 	.min_vco = 1000000, .max_vco = 2064000,
@@ -69,23 +89,21 @@ gk20a_pllg_calc_rate(struct gk20a_clk *clk)
 	u32 divider;
 
 	rate = clk->parent_rate * clk->pll.n;
-	divider = clk->pll.m * pl_to_div[clk->pll.pl];
+	divider = clk->pll.m * _pl_to_div[clk->pll.pl];
 
 	return rate / divider / 2;
 }
 
-static int
+int
 gk20a_pllg_calc_mnp(struct gk20a_clk *clk, unsigned long rate)
 {
 	struct nvkm_subdev *subdev = &clk->base.subdev;
 	u32 target_clk_f, ref_clk_f, target_freq;
 	u32 min_vco_f, max_vco_f;
 	u32 low_pl, high_pl, best_pl;
-	u32 target_vco_f, vco_f;
+	u32 target_vco_f;
 	u32 best_m, best_n;
-	u32 u_f;
-	u32 m, n, n2;
-	u32 delta, lwv, best_delta = ~0;
+	u32 best_delta = ~0;
 	u32 pl;
 
 	target_clk_f = rate * 2 / KHZ;
@@ -105,35 +123,31 @@ gk20a_pllg_calc_mnp(struct gk20a_clk *clk, unsigned long rate)
 	high_pl = (max_vco_f + target_vco_f - 1) / target_vco_f;
 	high_pl = min(high_pl, clk->params->max_pl);
 	high_pl = max(high_pl, clk->params->min_pl);
+	high_pl = clk->div_to_pl(high_pl);
 
 	/* min_pl <= low_pl <= max_pl */
 	low_pl = min_vco_f / target_vco_f;
 	low_pl = min(low_pl, clk->params->max_pl);
 	low_pl = max(low_pl, clk->params->min_pl);
-
-	/* Find Indices of high_pl and low_pl */
-	for (pl = 0; pl < ARRAY_SIZE(pl_to_div) - 1; pl++) {
-		if (pl_to_div[pl] >= low_pl) {
-			low_pl = pl;
-			break;
-		}
-	}
-	for (pl = 0; pl < ARRAY_SIZE(pl_to_div) - 1; pl++) {
-		if (pl_to_div[pl] >= high_pl) {
-			high_pl = pl;
-			break;
-		}
-	}
+	low_pl = clk->div_to_pl(low_pl);
 
 	nvkm_debug(subdev, "low_PL %d(div%d), high_PL %d(div%d)", low_pl,
-		   pl_to_div[low_pl], high_pl, pl_to_div[high_pl]);
+		   clk->pl_to_div(low_pl), high_pl, clk->pl_to_div(high_pl));
 
 	/* Select lowest possible VCO */
 	for (pl = low_pl; pl <= high_pl; pl++) {
-		target_vco_f = target_clk_f * pl_to_div[pl];
+		u32 m, n, n2;
+
+		target_vco_f = target_clk_f * clk->pl_to_div(pl);
 		for (m = clk->params->min_m; m <= clk->params->max_m; m++) {
+			u32 u_f;
+			u32 vco_f;
+
 			u_f = ref_clk_f / m;
 
+			/* NA mode is supported only at max update rate 38.4 MHz */
+			if (clk->napll_enabled && u_f != clk->params->max_u)
+				continue;
 			if (u_f < clk->params->min_u)
 				break;
 			if (u_f > clk->params->max_u)
@@ -154,8 +168,10 @@ gk20a_pllg_calc_mnp(struct gk20a_clk *clk, unsigned long rate)
 				vco_f = ref_clk_f * n / m;
 
 				if (vco_f >= min_vco_f && vco_f <= max_vco_f) {
-					lwv = (vco_f + (pl_to_div[pl] / 2))
-						/ pl_to_div[pl];
+					u32 delta, lwv;
+
+					lwv = (vco_f + (clk->pl_to_div(pl) / 2))
+						/ clk->pl_to_div(pl);
 					delta = abs(lwv - target_clk_f);
 
 					if (delta < best_delta) {
@@ -177,7 +193,7 @@ found_match:
 
 	if (best_delta != 0)
 		nvkm_debug(subdev,
-			   "no best match for target @ %dMHz on gpc_pll",
+			   "no best match for target @ %dKHz on gpc_pll",
 			   target_clk_f);
 
 	clk->pll.m = best_m;
@@ -188,7 +204,7 @@ found_match:
 
 	nvkm_debug(subdev,
 		   "actual target freq %d MHz, M %d, N %d, PL %d(div%d)\n",
-		   target_freq / MHZ, clk->pll.m, clk->pll.n, clk->pll.pl, pl_to_div[clk->pll.pl]);
+		   target_freq / KHZ, clk->pll.m, clk->pll.n, clk->pll.pl, clk->pl_to_div(clk->pll.pl));
 	return 0;
 }
 
@@ -590,6 +606,9 @@ gk20a_clk_new(struct nvkm_device *device, int index, struct nvkm_clk **pclk)
 
 	clk->params = &gk20a_pllg_params;
 	clk->parent_rate = clk_get_rate(tdev->clk);
+
+	clk->pl_to_div = pl_to_div;
+	clk->div_to_pl = div_to_pl;
 
 	ret = nvkm_clk_ctor(&gk20a_clk, device, index, true, &clk->base);
 	nvkm_info(&clk->base.subdev, "parent clock rate: %d Khz\n",

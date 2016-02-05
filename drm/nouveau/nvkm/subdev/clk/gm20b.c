@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015, NVIDIA CORPORATION. All rights reserved.
+ * Copyright (c) 2015-2016, NVIDIA CORPORATION. All rights reserved.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
@@ -94,12 +94,12 @@
 #define DFS_DET_RANGE	6	/* -2^6 ... 2^6-1 */
 #define SDM_DIN_RANGE	12	/* -2^12 ... 2^12-1 */
 
-static inline u32 pl_to_div(u32 pl)
+static u32 pl_to_div(u32 pl)
 {
 	return pl;
 }
 
-static inline u32 div_to_pl(u32 div)
+static u32 div_to_pl(u32 div)
 {
 	return div;
 }
@@ -184,118 +184,6 @@ gm20b_pllg_calc_rate(u32 ref_rate, struct gk20a_pll *pll)
 	do_div(rate, divider);
 
 	return rate / 2;
-}
-
-static int
-gm20b_pllg_calc_mnp(struct gk20a_clk *clk, unsigned long rate)
-{
-	struct nvkm_subdev *subdev = &clk->base.subdev;
-	u32 target_clk_f, ref_clk_f, target_freq;
-	u32 min_vco_f, max_vco_f;
-	u32 low_pl, high_pl, best_pl;
-	u32 target_vco_f, vco_f;
-	u32 best_m, best_n;
-	u32 u_f;
-	u32 m, n, n2;
-	u32 delta, lwv, best_delta = ~0;
-	u32 pl;
-
-	target_clk_f = rate * 2 / KHZ;
-	ref_clk_f = clk->parent_rate / KHZ;
-
-	max_vco_f = clk->params->max_vco;
-	min_vco_f = clk->params->min_vco;
-	best_m = clk->params->max_m;
-	best_n = clk->params->min_n;
-	best_pl = clk->params->min_pl;
-
-	target_vco_f = target_clk_f + target_clk_f / 50;
-	if (max_vco_f < target_vco_f)
-		max_vco_f = target_vco_f;
-
-	/* min_pl <= high_pl <= max_pl */
-	high_pl = div_to_pl((max_vco_f + target_vco_f - 1) / target_vco_f);
-	high_pl = min(high_pl, clk->params->max_pl);
-	high_pl = max(high_pl, clk->params->min_pl);
-
-	/* min_pl <= low_pl <= max_pl */
-	low_pl = div_to_pl(min_vco_f / target_vco_f);
-	low_pl = min(low_pl, clk->params->max_pl);
-	low_pl = max(low_pl, clk->params->min_pl);
-
-	nvkm_debug(subdev, "low_PL %d(div%d), high_PL %d(div%d)", low_pl,
-		   pl_to_div(low_pl), high_pl, pl_to_div(high_pl));
-
-	/* Select lowest possible VCO */
-	for (pl = low_pl; pl <= high_pl; pl++) {
-		target_vco_f = target_clk_f * pl_to_div(pl);
-		for (m = clk->params->min_m; m <= clk->params->max_m; m++) {
-			u_f = ref_clk_f / m;
-
-			/* NA mode is supported only at max update rate 38.4 MHz */
-			if (clk->napll_enabled && u_f != clk->params->max_u)
-				continue;
-			if (u_f < clk->params->min_u)
-				break;
-			if (u_f > clk->params->max_u)
-				continue;
-
-			n = (target_vco_f * m) / ref_clk_f;
-			n2 = ((target_vco_f * m) + (ref_clk_f - 1)) / ref_clk_f;
-
-			if (n > clk->params->max_n)
-				break;
-
-			for (; n <= n2; n++) {
-				if (n < clk->params->min_n)
-					continue;
-				if (n > clk->params->max_n)
-					break;
-
-				vco_f = ref_clk_f * n / m;
-
-				if (vco_f >= min_vco_f && vco_f <= max_vco_f) {
-					lwv = (vco_f + (pl_to_div(pl) / 2))
-						/ pl_to_div(pl);
-					delta = abs(lwv - target_clk_f);
-
-					if (delta < best_delta) {
-						best_delta = delta;
-						best_m = m;
-						best_n = n;
-						best_pl = pl;
-
-						if (best_delta == 0)
-							goto found_match;
-					}
-					nvkm_debug(subdev, "delta %d @ M %d, N %d, PL %d",
-							delta, m, n, pl);
-				}
-			}
-		}
-	}
-
-found_match:
-	WARN_ON(best_delta == ~0);
-
-	if (best_delta != 0)
-		nvkm_debug(subdev,
-			   "no best match for target @ %dKHz on gpc_pll",
-			   target_clk_f);
-
-	   clk->pll.m = best_m;
-	   clk->pll.n = best_n;
-	   clk->pll.pl = best_pl;
-
-	target_freq = gm20b_pllg_calc_rate(clk->parent_rate,
-			&clk->pll);
-	target_freq /= KHZ;
-	   clk->rate = target_freq * 2;
-
-	nvkm_debug(subdev, "actual target freq %d KHz, M %d, N %d, PL %d(div%d)\n",
-		 target_freq, clk->pll.m, clk->pll.n,
-		           clk->pll.pl, pl_to_div(clk->pll.pl));
-	return 0;
 }
 
 static void
@@ -1143,7 +1031,7 @@ gm20b_clk_calc(struct nvkm_clk *base, struct nvkm_cstate *cstate)
 	struct gm20b_clk *clk = gm20b_clk(base);
 	int ret;
 
-	ret = gm20b_pllg_calc_mnp(&clk->base, cstate->domain[nv_clk_src_gpc] *
+	ret = gk20a_pllg_calc_mnp(&clk->base, cstate->domain[nv_clk_src_gpc] *
 					 GM20B_CLK_GPC_MDIV);
 	if (!ret)
 		clk->vid = cstate->voltage;
@@ -1334,6 +1222,9 @@ gm20b_clk_new(struct nvkm_device *device, int index, struct nvkm_clk **pclk)
 	clk->base.params = &gm20b_pllg_params;
 	clk->na_params = &gm20b_pllg_na_params;
 	clk->base.parent_rate = clk_get_rate(tdev->clk);
+
+	clk->base.pl_to_div = pl_to_div;
+	clk->base.div_to_pl = div_to_pl;
 
 	ret = nvkm_clk_ctor(&gm20b_clk, device, index, true, &clk->base.base);
 	if (ret)

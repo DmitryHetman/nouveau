@@ -109,8 +109,6 @@ struct gk20a_pll {
 	u32 pl;
 };
 
-void gk20a_pllg_read_mnp(struct nvkm_clk *clk, struct gk20a_pll *pll);
-
 struct gk20a_clk {
 	struct nvkm_clk base;
 	const struct gk20a_clk_pllg_params *params;
@@ -118,6 +116,12 @@ struct gk20a_clk {
 	u32 parent_rate;
 	u32 rate;
 	bool napll_enabled;
+
+	u32 (*div_to_pl)(u32);
+	u32 (*pl_to_div)(u32);
 };
+
+void gk20a_pllg_read_mnp(struct nvkm_clk *clk, struct gk20a_pll *pll);
+int gk20a_pllg_calc_mnp(struct gk20a_clk *clk, unsigned long rate);
 
 #endif
