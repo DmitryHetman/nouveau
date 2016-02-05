@@ -50,13 +50,6 @@ static const struct gk20a_clk_pllg_params gk20a_pllg_params = {
 	.min_pl = 1, .max_pl = 32,
 };
 
-struct gk20a_clk {
-	struct nvkm_clk base;
-	const struct gk20a_clk_pllg_params *params;
-	struct gk20a_pll pll;
-	u32 parent_rate;
-};
-
 void
 gk20a_pllg_read_mnp(struct nvkm_clk *clk, struct gk20a_pll *pll)
 {
