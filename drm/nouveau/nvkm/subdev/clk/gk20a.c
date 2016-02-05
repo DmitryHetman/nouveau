@@ -383,30 +383,6 @@ gk20a_pllg_program_mnp(struct gk20a_clk *clk)
 	return err;
 }
 
-static void
-gk20a_pllg_disable(struct gk20a_clk *clk)
-{
-	struct nvkm_device *device = clk->base.subdev.device;
-	u32 val;
-
-	/* slide to VCO min */
-	val = nvkm_rd32(device, GPCPLL_CFG);
-	if (val & GPCPLL_CFG_ENABLE) {
-		u32 coeff, m, n_lo;
-
-		coeff = nvkm_rd32(device, GPCPLL_COEFF);
-		m = (coeff >> GPCPLL_COEFF_M_SHIFT) & MASK(GPCPLL_COEFF_M_WIDTH);
-		n_lo = DIV_ROUND_UP(m * clk->params->min_vco,
-				    clk->parent_rate / KHZ);
-		gk20a_pllg_slide(clk, n_lo);
-	}
-
-	/* put PLL in bypass before disabling it */
-	nvkm_mask(device, SEL_VCO, BIT(SEL_VCO_GPC2CLK_OUT_SHIFT), 0);
-
-	_gk20a_pllg_disable(clk);
-}
-
 #define GK20A_CLK_GPC_MDIV 1000
 
 static struct nvkm_pstate
@@ -547,8 +523,26 @@ gk20a_clk_tidy(struct nvkm_clk *base)
 static void
 gk20a_clk_fini(struct nvkm_clk *base)
 {
+	struct nvkm_device *device = base->subdev.device;
 	struct gk20a_clk *clk = gk20a_clk(base);
-	gk20a_pllg_disable(clk);
+	u32 val;
+
+	/* slide to VCO min */
+	val = nvkm_rd32(device, GPCPLL_CFG);
+	if (val & GPCPLL_CFG_ENABLE) {
+		u32 coeff, m, n_lo;
+
+		coeff = nvkm_rd32(device, GPCPLL_COEFF);
+		m = (coeff >> GPCPLL_COEFF_M_SHIFT) & MASK(GPCPLL_COEFF_M_WIDTH);
+		n_lo = DIV_ROUND_UP(m * clk->params->min_vco,
+				    clk->parent_rate / KHZ);
+		gk20a_pllg_slide(clk, n_lo);
+	}
+
+	/* put PLL in bypass before disabling it */
+	nvkm_mask(device, SEL_VCO, BIT(SEL_VCO_GPC2CLK_OUT_SHIFT), 0);
+
+	_gk20a_pllg_disable(clk);
 }
 
 static int

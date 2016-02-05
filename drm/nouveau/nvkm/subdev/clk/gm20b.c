@@ -887,39 +887,6 @@ calibration_done:
 	return 0;
 }
 
-static void
-gm20b_pllg_disable(struct gm20b_clk *clk)
-{
-	struct nvkm_subdev *subdev = &clk->base.base.subdev;
-	struct nvkm_device *device = subdev->device;
-	u32 val;
-
-	/* slide to VCO min */
-	val = nvkm_rd32(device, GPCPLL_CFG);
-	if (val & GPCPLL_CFG_ENABLE) {
-		struct gm20b_gpcpll gpcpll;
-		gpcpll.pll = clk->base.pll;
-		gpcpll.dvfs = clk->dvfs;
-		gpcpll.rate = clk->base.rate;
-
-		gk20a_pllg_read_mnp(&clk->base.base, &gpcpll.pll);
-		gpcpll.pll.n = DIV_ROUND_UP(gpcpll.pll.m * clk->base.params->min_vco,
-				                                clk->base.parent_rate / KHZ);
-		if (clk->base.napll_enabled)
-			gm20b_clk_calc_dfs_ndiv(clk, &gpcpll.dvfs, gpcpll.dvfs.uv,
-					gpcpll.pll.n);
-		gm20b_pllg_slide(clk, &gpcpll);
-	}
-
-	/* put PLL in bypass before disabling it */
-	nvkm_mask(device, SEL_VCO, BIT(SEL_VCO_GPC2CLK_OUT_SHIFT), 0);
-
-	/* clear SYNC_MODE before disabling PLL */
-	nvkm_mask(device, GPCPLL_CFG, ~(0x1 << GPCPLL_CFG_SYNC_MODE), 0);
-
-	_gm20b_pllg_disable(clk);
-}
-
 #define GM20B_CLK_GPC_MDIV 1000
 
 static struct nvkm_pstate
@@ -1065,8 +1032,34 @@ gm20b_clk_tidy(struct nvkm_clk *clk)
 static void
 gm20b_clk_fini(struct nvkm_clk *base)
 {
+	struct nvkm_device *device = base->subdev.device;
 	struct gm20b_clk *clk = gm20b_clk(base);
-	gm20b_pllg_disable(clk);
+	u32 val;
+
+	/* slide to VCO min */
+	val = nvkm_rd32(device, GPCPLL_CFG);
+	if (val & GPCPLL_CFG_ENABLE) {
+		struct gm20b_gpcpll gpcpll;
+		gpcpll.pll = clk->base.pll;
+		gpcpll.dvfs = clk->dvfs;
+		gpcpll.rate = clk->base.rate;
+
+		gk20a_pllg_read_mnp(&clk->base.base, &gpcpll.pll);
+		gpcpll.pll.n = DIV_ROUND_UP(gpcpll.pll.m * clk->base.params->min_vco,
+				                                clk->base.parent_rate / KHZ);
+		if (clk->base.napll_enabled)
+			gm20b_clk_calc_dfs_ndiv(clk, &gpcpll.dvfs, gpcpll.dvfs.uv,
+					gpcpll.pll.n);
+		gm20b_pllg_slide(clk, &gpcpll);
+	}
+
+	/* put PLL in bypass before disabling it */
+	nvkm_mask(device, SEL_VCO, BIT(SEL_VCO_GPC2CLK_OUT_SHIFT), 0);
+
+	/* clear SYNC_MODE before disabling PLL */
+	nvkm_mask(device, GPCPLL_CFG, ~(0x1 << GPCPLL_CFG_SYNC_MODE), 0);
+
+	_gm20b_pllg_disable(clk);
 }
 
 static int
