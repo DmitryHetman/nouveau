@@ -296,7 +296,6 @@ _gk20a_pllg_program_mnp(struct gk20a_clk *clk, bool allow_slide)
 
 	/* get old coefficients */
 	gk20a_pllg_read_mnp(&clk->base, &pll);
-	val = nvkm_rd32(device, GPCPLL_COEFF);
 
 	/* do NDIV slide if there is no change in M and PL */
 	cfg = nvkm_rd32(device, GPCPLL_CFG);
