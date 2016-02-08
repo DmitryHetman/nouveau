@@ -944,7 +944,6 @@ gm20b_clk_calc(struct nvkm_clk *base, struct nvkm_cstate *cstate)
 	int ret;
 
 	ret = gk20a_clk_calc(base, cstate);
-
 	if (!ret)
 		clk->vid = cstate->voltage;
 
