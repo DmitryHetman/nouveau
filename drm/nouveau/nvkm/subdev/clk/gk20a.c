@@ -88,7 +88,7 @@ gk20a_pllg_calc_rate(struct gk20a_clk *clk)
 	u32 divider;
 
 	rate = clk->parent_rate * clk->pll.n;
-	divider = clk->pll.m * _pl_to_div[clk->pll.pl];
+	divider = clk->pll.m * clk->pl_to_div(clk->pll.pl);
 
 	return rate / divider / 2;
 }
