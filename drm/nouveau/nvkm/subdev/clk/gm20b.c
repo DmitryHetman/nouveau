@@ -945,8 +945,8 @@ gm20b_clk_calc(struct nvkm_clk *base, struct nvkm_cstate *cstate)
 	struct gm20b_clk *clk = gm20b_clk(base);
 	int ret;
 
-	ret = gk20a_pllg_calc_mnp(&clk->base, cstate->domain[nv_clk_src_gpc] *
-					 GM20B_CLK_GPC_MDIV);
+	ret = gk20a_clk_calc(base, cstate);
+
 	if (!ret)
 		clk->vid = cstate->voltage;
 

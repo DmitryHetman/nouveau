@@ -500,7 +500,7 @@ gk20a_clk_read(struct nvkm_clk *base, enum nv_clk_src src)
 	}
 }
 
-static int
+int
 gk20a_clk_calc(struct nvkm_clk *base, struct nvkm_cstate *cstate)
 {
 	struct gk20a_clk *clk = gk20a_clk(base);
