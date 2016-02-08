@@ -22,7 +22,6 @@
  * Shamelessly ripped off from ChromeOS's gk20a/clk_pllg.c
  *
  */
-#define gk20a_clk(p) container_of((p), struct gk20a_clk, base)
 #include "priv.h"
 #include "gk20a.h"
 

@@ -26,8 +26,7 @@
 
 #include <core/device.h>
 
-/* TODO */
-#define gm20b_clk(p) container_of(container_of((p), struct gk20a_clk, base), struct gm20b_clk, base)
+#define gm20b_clk(p) container_of(gk20a_clk(p), struct gm20b_clk, base)
 #include "priv.h"
 #include "gk20a.h"
 

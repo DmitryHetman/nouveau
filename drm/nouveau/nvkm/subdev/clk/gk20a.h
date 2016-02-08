@@ -120,6 +120,7 @@ struct gk20a_clk {
 	u32 (*div_to_pl)(u32);
 	u32 (*pl_to_div)(u32);
 };
+#define gk20a_clk(p) container_of((p), struct gk20a_clk, base)
 
 #define GK20A_CLK_GPC_MDIV 1000
 
