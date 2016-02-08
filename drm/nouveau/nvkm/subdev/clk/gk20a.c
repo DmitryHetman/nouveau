@@ -481,7 +481,7 @@ gk20a_pstates[] = {
 	},
 };
 
-static int
+int
 gk20a_clk_read(struct nvkm_clk *base, enum nv_clk_src src)
 {
 	struct gk20a_clk *clk = gk20a_clk(base);

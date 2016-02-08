@@ -125,5 +125,7 @@ void gk20a_pllg_read_mnp(struct nvkm_clk *clk, struct gk20a_pll *pll);
 int gk20a_pllg_calc_mnp(struct gk20a_clk *clk, unsigned long rate);
 void gk20a_pllg_enable(struct gk20a_clk *clk);
 void gk20a_pllg_disable(struct gk20a_clk *clk);
+int gk20a_clk_read(struct nvkm_clk *base, enum nv_clk_src src);
+
 
 #endif

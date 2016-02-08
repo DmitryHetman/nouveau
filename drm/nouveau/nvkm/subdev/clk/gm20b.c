@@ -173,19 +173,6 @@ static u32 gm20b_pllg_get_interim_pldiv(u32 old, u32 new)
 	return min(old | BIT(ffs(new) - 1), new | BIT(ffs(old) - 1));
 }
 
-static u32
-gm20b_pllg_calc_rate(u32 ref_rate, struct gk20a_pll *pll)
-{
-	u32 rate;
-	u32 divider;
-
-	rate = ref_rate * pll->n;
-	divider = pll->m * pl_to_div(pll->pl);
-	do_div(rate, divider);
-
-	return rate / 2;
-}
-
 static void
 gm20b_clk_calc_dfs_det_coeff(struct gm20b_clk *clk, int uv)
 {
@@ -953,26 +940,6 @@ gm20b_pstates[] = {
 };
 
 static int
-gm20b_clk_read(struct nvkm_clk *base, enum nv_clk_src src)
-{
-	struct gm20b_clk *clk = gm20b_clk(base);
-	struct nvkm_subdev *subdev = &clk->base.base.subdev;
-	struct nvkm_device *device = subdev->device;
-
-	switch (src) {
-	case nv_clk_src_crystal:
-		return device->crystal;
-	case nv_clk_src_gpc:
-		gk20a_pllg_read_mnp(&clk->base.base, &clk->base.pll);
-		return gm20b_pllg_calc_rate(clk->base.parent_rate, &clk->base.pll) /
-			GM20B_CLK_GPC_MDIV;
-	default:
-		nvkm_error(subdev, "invalid clock source %d\n", src);
-		return -EINVAL;
-	}
-}
-
-static int
 gm20b_clk_calc(struct nvkm_clk *base, struct nvkm_cstate *cstate)
 {
 	struct gm20b_clk *clk = gm20b_clk(base);
@@ -1162,7 +1129,7 @@ static const struct nvkm_clk_func
 gm20b_clk = {
 	.init = gm20b_clk_init,
 	.fini = gm20b_clk_fini,
-	.read = gm20b_clk_read,
+	.read = gk20a_clk_read,
 	.calc = gm20b_clk_calc,
 	.prog = gm20b_clk_prog,
 	.tidy = gm20b_clk_tidy,
