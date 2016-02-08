@@ -338,6 +338,7 @@ _gk20a_pllg_program_mnp(struct gk20a_clk *clk, bool allow_slide)
 	nvkm_debug(subdev, "%s: m=%d n=%d pl=%d\n", __func__,
 		   clk->pll.m, clk->pll.n, clk->pll.pl);
 
+	/* TODO coefs are never cleared? */
 	n_lo = DIV_ROUND_UP(clk->pll.m * clk->params->min_vco,
 			    clk->parent_rate / KHZ);
 	val = clk->pll.m << GPCPLL_COEFF_M_SHIFT;
@@ -360,13 +361,20 @@ _gk20a_pllg_program_mnp(struct gk20a_clk *clk, bool allow_slide)
 		return -ETIMEDOUT;
 
 	/* switch to VCO mode */
-	nvkm_mask(device, SEL_VCO, 0, BIT(SEL_VCO_GPC2CLK_OUT_SHIFT));
+	nvkm_mask(device, SEL_VCO, BIT(SEL_VCO_GPC2CLK_OUT_SHIFT), 1);
 
 	/* restore out divider 1:1 */
 	val = nvkm_rd32(device, GPC2CLK_OUT);
-	val &= ~GPC2CLK_OUT_VCODIV_MASK;
-	udelay(2);
-	nvkm_wr32(device, GPC2CLK_OUT, val);
+	if ((val & GPC2CLK_OUT_VCODIV_MASK) !=
+	    (GPC2CLK_OUT_VCODIV1 << GPC2CLK_OUT_VCODIV_SHIFT)) {
+		val &= ~GPC2CLK_OUT_VCODIV_MASK;
+		val |= GPC2CLK_OUT_VCODIV1 << GPC2CLK_OUT_VCODIV_SHIFT;
+		udelay(2);
+		nvkm_wr32(device, GPC2CLK_OUT, val);
+		/* Intentional 2nd write to assure linear divider operation */
+		nvkm_wr32(device, GPC2CLK_OUT, val);
+		nvkm_rd32(device, GPC2CLK_OUT);
+	}
 
 	/* slide up to new NDIV */
 	return allow_slide ? gk20a_pllg_slide(clk, clk->pll.n) : 0;

@@ -480,6 +480,7 @@ gm20b_lock_gpcpll_under_bypass(struct gm20b_clk *clk,
 	nvkm_trace(subdev, "%s(): m=%d n=%d pl=%d\n", __func__,
 			gpcpll->pll.m, gpcpll->pll.n, gpcpll->pll.pl);
 
+	/* TODO coefs are never cleared?? */
 	/* change coefficients */
 	if (clk->base.napll_enabled) {
 		gm20b_clk_program_dfs_detection(clk, gpcpll);
@@ -687,8 +688,6 @@ _gm20b_pllg_program_na_mnp(struct gm20b_clk *clk,
 	struct nvkm_subdev *subdev = &clk->base.base.subdev;
 	struct nvkm_device *device = subdev->device;
 	struct nvkm_volt *volt = device->volt;
-	int cur_uv = nvkm_volt_get(volt);
-	int new_uv = nvkm_volt_get_voltage_by_id(volt, clk->vid);
 	u32 cur_rate = clk->last_rate;
 
 	gm20b_clk_config_dvfs(clk);
@@ -707,6 +706,8 @@ _gm20b_pllg_program_na_mnp(struct gm20b_clk *clk,
 
 	/* Before setting coefficient to 0, switch to safe frequency first */
 	if (cur_rate > clk->safe_fmax_vmin) {
+		int cur_uv = nvkm_volt_get(volt);
+		int new_uv = nvkm_volt_get_voltage_by_id(volt, clk->vid);
 		struct gm20b_gpcpll safe_gpcpll;
 		int ret;
 
