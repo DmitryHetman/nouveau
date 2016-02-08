@@ -854,8 +854,6 @@ calibration_done:
 	return 0;
 }
 
-#define GM20B_CLK_GPC_MDIV 1000
-
 static struct nvkm_pstate
 gm20b_pstates[] = {
 	{
@@ -1137,7 +1135,7 @@ gm20b_clk = {
 	.nr_pstates = ARRAY_SIZE(gm20b_pstates),
 	.domains = {
 		{ nv_clk_src_crystal, 0xff },
-		{ nv_clk_src_gpc, 0xff, 0, "core", GM20B_CLK_GPC_MDIV },
+		{ nv_clk_src_gpc, 0xff, 0, "core", GK20A_CLK_GPC_MDIV },
 		{ nv_clk_src_max },
 	},
 };

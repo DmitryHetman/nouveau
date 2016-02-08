@@ -121,6 +121,8 @@ struct gk20a_clk {
 	u32 (*pl_to_div)(u32);
 };
 
+#define GK20A_CLK_GPC_MDIV 1000
+
 void gk20a_pllg_read_mnp(struct nvkm_clk *clk, struct gk20a_pll *pll);
 int gk20a_pllg_calc_mnp(struct gk20a_clk *clk, unsigned long rate);
 void gk20a_pllg_enable(struct gk20a_clk *clk);

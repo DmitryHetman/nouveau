@@ -384,8 +384,6 @@ gk20a_pllg_program_mnp(struct gk20a_clk *clk)
 	return err;
 }
 
-#define GK20A_CLK_GPC_MDIV 1000
-
 static struct nvkm_pstate
 gk20a_pstates[] = {
 	{
