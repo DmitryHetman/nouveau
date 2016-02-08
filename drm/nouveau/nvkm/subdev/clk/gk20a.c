@@ -293,6 +293,7 @@ _gk20a_pllg_program_mnp(struct gk20a_clk *clk, bool allow_slide)
 	u32 val, cfg;
 	struct gk20a_pll pll;
 	u32 n_lo;
+	int ret;
 
 	/* get old coefficients */
 	gk20a_pllg_read_mnp(&clk->base, &pll);
@@ -305,10 +306,10 @@ _gk20a_pllg_program_mnp(struct gk20a_clk *clk, bool allow_slide)
 	}
 
 	/* slide down to NDIV_LO */
-	n_lo = DIV_ROUND_UP(pll.m * clk->params->min_vco,
-			    clk->parent_rate / KHZ);
 	if (allow_slide && (cfg & GPCPLL_CFG_ENABLE)) {
-		int ret = gk20a_pllg_slide(clk, n_lo);
+		n_lo = DIV_ROUND_UP(pll.m * clk->params->min_vco,
+				    clk->parent_rate / KHZ);
+		ret = gk20a_pllg_slide(clk, n_lo);
 
 		if (ret)
 			return ret;
