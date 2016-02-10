@@ -84,7 +84,7 @@ gk20a_pllg_read_mnp(struct nvkm_clk *clk, struct gk20a_pll *pll)
 static u32
 gk20a_pllg_calc_rate(struct gk20a_clk *clk)
 {
-	u32 rate;
+	u64 rate;
 	u32 divider;
 
 	rate = clk->parent_rate * clk->pll.n;
