@@ -446,7 +446,11 @@ nouveau_fbcon_create(struct drm_fb_helper *helper,
 	nouveau_fbcon_zfill(dev, fbcon);
 
 	/* To allow resizeing without swapping buffers */
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(3,19,0)
 	NV_INFO(drm, "allocated %dx%d fb: 0x%llx, bo %p\n",
+#else
+	NV_INFO(drm, "allocated %dx%d fb: 0x%lx, bo %p\n",
+#endif
 		nouveau_fb->base.width, nouveau_fb->base.height,
 		nvbo->bo.offset, nvbo);
 
