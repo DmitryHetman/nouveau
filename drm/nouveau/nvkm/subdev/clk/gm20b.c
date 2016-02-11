@@ -690,6 +690,7 @@ _gm20b_pllg_program_na_mnp(struct gm20b_clk *clk,
 	struct nvkm_volt *volt = device->volt;
 	u32 cur_rate = clk->last_rate;
 
+	/* TODO move to calc! */
 	gm20b_clk_config_dvfs(clk);
 
 	/*
@@ -937,6 +938,7 @@ gm20b_pstates[] = {
 
 };
 
+/* TODO have a calc for napll where we do gk20a + dvfs stuff */
 static int
 gm20b_clk_calc(struct nvkm_clk *base, struct nvkm_cstate *cstate)
 {
@@ -950,6 +952,9 @@ gm20b_clk_calc(struct nvkm_clk *base, struct nvkm_cstate *cstate)
 	return ret;
 }
 
+/* TODO have a function for napll and use the gk20a one in the other case
+   it seems like the speedo 0 behaves exactly like gk20a anyway! so we can
+   assume gm20b functions are for speedo >= 1 */
 static int
 gm20b_clk_prog(struct nvkm_clk *base)
 {
