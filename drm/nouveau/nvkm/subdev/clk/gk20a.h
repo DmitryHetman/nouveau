@@ -130,5 +130,6 @@ void gk20a_pllg_enable(struct gk20a_clk *clk);
 void gk20a_pllg_disable(struct gk20a_clk *clk);
 int gk20a_clk_read(struct nvkm_clk *base, enum nv_clk_src src);
 int gk20a_clk_calc(struct nvkm_clk *base, struct nvkm_cstate *cstate);
+void gk20a_clk_tidy(struct nvkm_clk *base);
 
 #endif

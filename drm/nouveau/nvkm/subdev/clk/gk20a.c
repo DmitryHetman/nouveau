@@ -522,7 +522,7 @@ gk20a_clk_prog(struct nvkm_clk *base)
 	return gk20a_pllg_program_mnp(clk);
 }
 
-static void
+void
 gk20a_clk_tidy(struct nvkm_clk *base)
 {
 }

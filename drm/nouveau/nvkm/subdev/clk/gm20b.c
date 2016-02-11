@@ -969,11 +969,6 @@ gm20b_clk_prog(struct nvkm_clk *base)
 }
 
 static void
-gm20b_clk_tidy(struct nvkm_clk *clk)
-{
-}
-
-static void
 gm20b_clk_fini(struct nvkm_clk *base)
 {
 	struct nvkm_device *device = base->subdev.device;
@@ -1129,7 +1124,7 @@ gm20b_clk = {
 	.read = gk20a_clk_read,
 	.calc = gm20b_clk_calc,
 	.prog = gm20b_clk_prog,
-	.tidy = gm20b_clk_tidy,
+	.tidy = gk20a_clk_tidy,
 	.pstates = gm20b_pstates,
 	.nr_pstates = ARRAY_SIZE(gm20b_pstates),
 	.domains = {
