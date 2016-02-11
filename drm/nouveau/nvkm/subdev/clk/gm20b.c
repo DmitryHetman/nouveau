@@ -825,6 +825,7 @@ gm20b_napll_setup(struct gm20b_clk *clk)
 	if (calibrated)
 		goto calibration_done;
 
+	/* TODO move into calibrate function */
 	/*
 	 * No fused calibration data available. Need to do internal
 	 * calibration.
@@ -1046,7 +1047,7 @@ gm20b_clk_init(struct nvkm_clk *base)
 			return ret;
 	}
 
-	ret = gm20b_clk_prog(&clk->base.base);
+	ret = base->func->prog(&clk->base.base);
 	if (ret) {
 		nvkm_error(subdev, "cannot initialize clock\n");
 		return ret;
@@ -1123,6 +1124,23 @@ gm20b_clk_init_safe_fmax(struct gm20b_clk *clk)
 }
 
 static const struct nvkm_clk_func
+gm20b_clk_speedo0 = {
+	.init = gm20b_clk_init,
+	.fini = gm20b_clk_fini,
+	.read = gk20a_clk_read,
+	.calc = gk20a_clk_calc,
+	.prog = gk20a_clk_prog,
+	.tidy = gk20a_clk_tidy,
+	.pstates = gm20b_pstates,
+	.nr_pstates = ARRAY_SIZE(gm20b_pstates) - 1,
+	.domains = {
+		{ nv_clk_src_crystal, 0xff },
+		{ nv_clk_src_gpc, 0xff, 0, "core", GK20A_CLK_GPC_MDIV },
+		{ nv_clk_src_max },
+	},
+};
+
+static const struct nvkm_clk_func
 gm20b_clk = {
 	.init = gm20b_clk_init,
 	.fini = gm20b_clk_fini,
@@ -1144,6 +1162,7 @@ gm20b_clk_new(struct nvkm_device *device, int index, struct nvkm_clk **pclk)
 {
 	struct nvkm_device_tegra *tdev = device->func->tegra(device);
 	struct gm20b_clk *clk;
+	const struct nvkm_clk_func *func;
 	int ret, i;
 
 	if (!(clk = kzalloc(sizeof(*clk), GFP_KERNEL)))
@@ -1163,7 +1182,12 @@ gm20b_clk_new(struct nvkm_device *device, int index, struct nvkm_clk **pclk)
 	clk->base.pl_to_div = pl_to_div;
 	clk->base.div_to_pl = div_to_pl;
 
-	ret = nvkm_clk_ctor(&gm20b_clk, device, index, true, &clk->base.base);
+	if (tdev->gpu_speedo_id >= 1)
+		func = &gm20b_clk;
+	else
+		func = &gm20b_clk_speedo0;
+
+	ret = nvkm_clk_ctor(func, device, index, true, &clk->base.base);
 	if (ret)
 		return ret;
 	nvkm_info(&clk->base.base.subdev, "parent clock rate: %d Khz\n",
