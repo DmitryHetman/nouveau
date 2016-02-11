@@ -584,6 +584,7 @@ _gm20b_pllg_program_mnp(struct gm20b_clk *clk,
 	 * with the current coeff after sliding down to min VCO, then we can
 	 * ignore the bypass step.
 	 */
+	/* TODO move into GK20A as GM20B speedo0 is glitchless */
 	if (clk->pldiv_glitchless_supported && pdiv_only) {
 		u32 interim_pl = gm20b_pllg_get_interim_pldiv(gpll.pll.pl,
 				gpcpll->pll.pl);
@@ -604,6 +605,7 @@ _gm20b_pllg_program_mnp(struct gm20b_clk *clk,
 						gpll.dvfs.uv, gpll.pll.n);
 		}
 
+		/* TODO move this code into GK20A and check that it works */
 		if (pdiv_only)
 			ret = gm20b_clk_program_pdiv_under_bypass(clk, &gpll);
 		else
