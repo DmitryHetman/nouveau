@@ -1164,50 +1164,49 @@ gm20b_clk_new(struct nvkm_device *device, int index, struct nvkm_clk **pclk)
 {
 	struct nvkm_device_tegra *tdev = device->func->tegra(device);
 	struct gm20b_clk *clk;
-	const struct nvkm_clk_func *func;
-	int ret, i;
+	int ret;
+
+	if (tdev->gpu_speedo_id == 0) {
+		struct gk20a_clk *_clk;
+		if (!(_clk = kzalloc(sizeof(*_clk), GFP_KERNEL)))
+			return -ENOMEM;
+		*pclk = &_clk->base;
+
+		ret = _gk20a_clk_ctor(device, index, &gm20b_clk_speedo0,
+				      &gm20b_pllg_params, _clk);
+		if (ret)
+			return ret;
+
+		_clk->pl_to_div = pl_to_div;
+		_clk->div_to_pl = div_to_pl;
+
+		return 0;
+	}
 
 	if (!(clk = kzalloc(sizeof(*clk), GFP_KERNEL)))
 		return -ENOMEM;
 	*pclk = &clk->base.base;
 
-	/* Finish initializing the pstates */
-	for (i = 0; i < ARRAY_SIZE(gm20b_pstates); i++) {
-		INIT_LIST_HEAD(&gm20b_pstates[i].list);
-		gm20b_pstates[i].pstate = i + 1;
-	}
-
-	clk->base.params = &gm20b_pllg_params;
-	clk->na_params = &gm20b_pllg_na_params;
-	clk->base.parent_rate = clk_get_rate(tdev->clk);
-
-	clk->base.pl_to_div = pl_to_div;
-	clk->base.div_to_pl = div_to_pl;
-
-	if (tdev->gpu_speedo_id >= 1)
-		func = &gm20b_clk;
-	else
-		func = &gm20b_clk_speedo0;
-
-	ret = nvkm_clk_ctor(func, device, index, true, &clk->base.base);
+	ret = _gk20a_clk_ctor(device, index, &gm20b_clk, &gm20b_pllg_params,
+			      &clk->base);
 	if (ret)
 		return ret;
-	nvkm_info(&clk->base.base.subdev, "parent clock rate: %d Khz\n",
-		  clk->base.parent_rate / KHZ);
-	nvkm_debug(&clk->base.base.subdev, "gpu speedo: %d\n", tdev->gpu_speedo_id);
 
+	clk->na_params = &gm20b_pllg_na_params;
+	clk->base.pl_to_div = pl_to_div;
+	clk->base.div_to_pl = div_to_pl;
 
 	ret = gm20b_clk_init_fused_params(clk);
 	/* print error and use boot internal calibration later */
 	if (ret)
-		nvkm_error(&clk->base.base.subdev,
+		nvkm_warn(&clk->base.base.subdev,
 			 "missing fused ADC calibration parameters\n");
 
 	ret = gm20b_clk_init_safe_fmax(clk);
 	if (ret)
 		return ret;
 
-	clk->base.napll_enabled = tdev->gpu_speedo_id >= 1;
+	clk->base.napll_enabled = 1;
 	clk->pldiv_glitchless_supported = true;
 
 	return ret;
