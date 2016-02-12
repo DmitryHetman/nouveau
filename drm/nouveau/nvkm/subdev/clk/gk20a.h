@@ -124,6 +124,10 @@ struct gk20a_clk {
 
 #define GK20A_CLK_GPC_MDIV 1000
 
+int _gk20a_clk_ctor(struct nvkm_device * device, int index,
+		    const struct nvkm_clk_func *func,
+		    const struct gk20a_clk_pllg_params *params,
+		    struct gk20a_clk *clk);
 void gk20a_pllg_read_mnp(struct nvkm_clk *clk, struct gk20a_pll *pll);
 int gk20a_pllg_calc_mnp(struct gk20a_clk *clk, unsigned long rate);
 void gk20a_pllg_enable(struct gk20a_clk *clk);
