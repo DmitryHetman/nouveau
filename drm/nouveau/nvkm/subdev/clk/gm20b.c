@@ -1194,6 +1194,7 @@ gm20b_clk_new(struct nvkm_device *device, int index, struct nvkm_clk **pclk)
 		return ret;
 	nvkm_info(&clk->base.base.subdev, "parent clock rate: %d Khz\n",
 		  clk->base.parent_rate / KHZ);
+	nvkm_debug(&clk->base.base.subdev, "gpu speedo: %d\n", tdev->gpu_speedo_id);
 
 
 	ret = gm20b_clk_init_fused_params(clk);
