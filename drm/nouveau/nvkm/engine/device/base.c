@@ -1989,6 +1989,7 @@ nv120_chipset = {
 	.disp = gm200_disp_new,
 	.dma = gf119_dma_new,
 	.fifo = gm200_fifo_new,
+	.gr = gm204_gr_new,
 	.sw = gf100_sw_new,
 	.secboot = gm200_secboot_new,
 };
