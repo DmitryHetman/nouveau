@@ -19,26 +19,27 @@
  * FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
  * DEALINGS IN THE SOFTWARE.
  */
-#include "gk104.h"
-#include "changk104.h"
 
-static const struct nvkm_fifo_func
-gm20b_fifo = {
-	.dtor = gk104_fifo_dtor,
-	.oneinit = gk104_fifo_oneinit,
-	.init = gk104_fifo_init,
-	.fini = gk104_fifo_fini,
-	.intr = gk104_fifo_intr,
-	.uevent_init = gk104_fifo_uevent_init,
-	.uevent_fini = gk104_fifo_uevent_fini,
-	.chan = {
-		&gm20b_fifo_gpfifo_oclass,
-		NULL
-	},
+#ifndef __GK20A_VOLT_H__
+#define __GK20A_VOLT_H__
+
+struct cvb_coef {
+	int c0;
+	int c1;
+	int c2;
+	int c3;
+	int c4;
+	int c5;
 };
 
-int
-gm20b_fifo_new(struct nvkm_device *device, int index, struct nvkm_fifo **pfifo)
-{
-	return gk104_fifo_new_(&gm20b_fifo, device, index, 512, pfifo);
-}
+struct gk20a_volt {
+	struct nvkm_volt base;
+	struct regulator *vdd;
+};
+
+int gk20a_volt_calc_voltage(const struct cvb_coef *coef, int speedo);
+int gk20a_volt_vid_get(struct nvkm_volt *volt);
+int gk20a_volt_vid_set(struct nvkm_volt *volt, u8 vid);
+int gk20a_volt_set_id(struct nvkm_volt *volt, u8 id, int condition);
+
+#endif
