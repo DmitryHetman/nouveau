@@ -223,8 +223,12 @@ nv04_tv_create(struct drm_connector *connector, struct dcb_output *entry)
 	/* Initialize the common members */
 	encoder = to_drm_encoder(nv_encoder);
 
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(4,5,0)
 	drm_encoder_init(dev, encoder, &nv04_tv_funcs, DRM_MODE_ENCODER_TVDAC,
 			 NULL);
+#else
+	drm_encoder_init(dev, encoder, &nv04_tv_funcs, DRM_MODE_ENCODER_TVDAC);
+#endif
 	drm_encoder_helper_add(encoder, &nv04_tv_helper_funcs);
 
 	nv_encoder->enc_save = drm_i2c_encoder_save;

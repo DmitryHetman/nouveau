@@ -42,6 +42,8 @@
 #include <nvif/cl0046.h>
 #include <nvif/event.h>
 
+#include <linux/version.h>
+
 static int
 nouveau_display_vblank_handler(struct nvif_notify *notify)
 {
@@ -52,7 +54,11 @@ nouveau_display_vblank_handler(struct nvif_notify *notify)
 }
 
 int
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(4,5,0)
 nouveau_display_vblank_enable(struct drm_device *dev, unsigned int pipe)
+#else
+nouveau_display_vblank_enable(struct drm_device *dev, int pipe)
+#endif
 {
 	struct drm_crtc *crtc;
 	list_for_each_entry(crtc, &dev->mode_config.crtc_list, head) {
@@ -66,7 +72,11 @@ nouveau_display_vblank_enable(struct drm_device *dev, unsigned int pipe)
 }
 
 void
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(4,5,0)
 nouveau_display_vblank_disable(struct drm_device *dev, unsigned int pipe)
+#else
+nouveau_display_vblank_disable(struct drm_device *dev, int pipe)
+#endif
 {
 	struct drm_crtc *crtc;
 	list_for_each_entry(crtc, &dev->mode_config.crtc_list, head) {
@@ -104,7 +114,9 @@ nouveau_display_scanoutpos_head(struct drm_crtc *crtc, int *vpos, int *hpos,
 		.base.head = nouveau_crtc(crtc)->index,
 	};
 	struct nouveau_display *disp = nouveau_display(crtc->dev);
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(4,5,0)
 	struct drm_vblank_crtc *vblank = &crtc->dev->vblank[drm_crtc_index(crtc)];
+#endif
 	int ret, retry = 1;
 
 	do {
@@ -118,7 +130,11 @@ nouveau_display_scanoutpos_head(struct drm_crtc *crtc, int *vpos, int *hpos,
 			break;
 		}
 
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(4,5,0)
 		if (retry) ndelay(vblank->linedur_ns);
+#else
+		if (retry) ndelay(crtc->linedur_ns);
+#endif
 	} while (retry--);
 
 	*hpos = args.scan.hline;
@@ -133,10 +149,16 @@ nouveau_display_scanoutpos_head(struct drm_crtc *crtc, int *vpos, int *hpos,
 }
 
 int
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(4,5,0)
 nouveau_display_scanoutpos(struct drm_device *dev, unsigned int pipe,
 			   unsigned int flags, int *vpos, int *hpos,
 			   ktime_t *stime, ktime_t *etime,
 			   const struct drm_display_mode *mode)
+#else
+nouveau_display_scanoutpos(struct drm_device *dev, int pipe,
+			   unsigned int flags, int *vpos, int *hpos,
+			   ktime_t *stime, ktime_t *etime)
+#endif
 {
 	struct drm_crtc *crtc;
 
@@ -151,15 +173,24 @@ nouveau_display_scanoutpos(struct drm_device *dev, unsigned int pipe,
 }
 
 int
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(4,5,0)
 nouveau_display_vblstamp(struct drm_device *dev, unsigned int pipe,
 			 int *max_error, struct timeval *time, unsigned flags)
+#else
+nouveau_display_vblstamp(struct drm_device *dev, int pipe,
+			 int *max_error, struct timeval *time, unsigned flags)
+#endif
 {
 	struct drm_crtc *crtc;
 
 	list_for_each_entry(crtc, &dev->mode_config.crtc_list, head) {
 		if (nouveau_crtc(crtc)->index == pipe) {
 			return drm_calc_vbltimestamp_from_scanoutpos(dev,
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(4,5,0)
 					pipe, max_error, time, flags,
+#else
+					pipe, max_error, time, flags, crtc,
+#endif
 					&crtc->hwmode);
 		}
 	}
@@ -254,7 +285,11 @@ nouveau_framebuffer_init(struct drm_device *dev,
 	struct drm_framebuffer *fb = &nv_fb->base;
 	int ret;
 
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(4,5,0)
 	drm_helper_mode_fill_fb_struct(fb, mode_cmd);
+#else
+	drm_helper_mode_fill_fb_struct(fb, (struct drm_mode_fb_cmd2 *)mode_cmd);
+#endif
 	nv_fb->nvbo = nvbo;
 
 	ret = drm_framebuffer_init(dev, fb, &nouveau_framebuffer_funcs);
@@ -273,7 +308,11 @@ nouveau_framebuffer_init(struct drm_device *dev,
 static struct drm_framebuffer *
 nouveau_user_framebuffer_create(struct drm_device *dev,
 				struct drm_file *file_priv,
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(4,5,0)
 				const struct drm_mode_fb_cmd2 *mode_cmd)
+#else
+				struct drm_mode_fb_cmd2 *mode_cmd)
+#endif
 {
 	struct nouveau_framebuffer *nouveau_fb;
 	struct drm_gem_object *gem;
@@ -840,6 +879,7 @@ nouveau_finish_page_flip(struct nouveau_channel *chan,
 	}
 
 	s = list_first_entry(&fctx->flip, struct nouveau_page_flip_state, head);
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(4,5,0)
 	if (s->event) {
 		if (drm->device.info.family < NV_DEVICE_INFO_V0_TESLA) {
 			drm_arm_vblank_event(dev, s->crtc, s->event);
@@ -854,6 +894,11 @@ nouveau_finish_page_flip(struct nouveau_channel *chan,
 		/* Give up ownership of vblank for page-flipped crtc */
 		drm_vblank_put(dev, s->crtc);
 	}
+#else
+	if (s->event)
+		drm_send_vblank_event(dev, s->crtc, s->event);
+	drm_vblank_put(dev, s->crtc);
+#endif
 
 	list_del(&s->head);
 	if (ps)

@@ -1724,7 +1724,11 @@ nv50_dac_create(struct drm_connector *connector, struct dcb_output *dcbe)
 	encoder = to_drm_encoder(nv_encoder);
 	encoder->possible_crtcs = dcbe->heads;
 	encoder->possible_clones = 0;
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(4,5,0)
 	drm_encoder_init(connector->dev, encoder, &nv50_dac_func, type, NULL);
+#else
+	drm_encoder_init(connector->dev, encoder, &nv50_dac_func, type);
+#endif
 	drm_encoder_helper_add(encoder, &nv50_dac_hfunc);
 
 	drm_mode_connector_attach_encoder(connector, encoder);
@@ -1762,8 +1766,12 @@ nv50_audio_mode_set(struct drm_encoder *encoder, struct drm_display_mode *mode)
 	drm_edid_to_eld(&nv_connector->base, nv_connector->edid);
 	memcpy(args.data, nv_connector->base.eld, sizeof(args.data));
 
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(3,19,0)
 	nvif_mthd(disp->disp, 0, &args,
 		  sizeof(args.base) + drm_eld_size(args.data));
+#else
+	nvif_mthd(disp->disp, 0, &args, sizeof(args.base) + args.data[2] * 4);
+#endif
 }
 
 static void
@@ -2139,7 +2147,11 @@ nv50_sor_create(struct drm_connector *connector, struct dcb_output *dcbe)
 	encoder = to_drm_encoder(nv_encoder);
 	encoder->possible_crtcs = dcbe->heads;
 	encoder->possible_clones = 0;
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(4,5,0)
 	drm_encoder_init(connector->dev, encoder, &nv50_sor_func, type, NULL);
+#else
+	drm_encoder_init(connector->dev, encoder, &nv50_sor_func, type);
+#endif
 	drm_encoder_helper_add(encoder, &nv50_sor_hfunc);
 
 	drm_mode_connector_attach_encoder(connector, encoder);
@@ -2319,7 +2331,11 @@ nv50_pior_create(struct drm_connector *connector, struct dcb_output *dcbe)
 	encoder = to_drm_encoder(nv_encoder);
 	encoder->possible_crtcs = dcbe->heads;
 	encoder->possible_clones = 0;
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(4,5,0)
 	drm_encoder_init(connector->dev, encoder, &nv50_pior_func, type, NULL);
+#else
+	drm_encoder_init(connector->dev, encoder, &nv50_pior_func, type);
+#endif
 	drm_encoder_helper_add(encoder, &nv50_pior_hfunc);
 
 	drm_mode_connector_attach_encoder(connector, encoder);

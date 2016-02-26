@@ -24,6 +24,8 @@
  *
  */
 
+#include <linux/version.h>
+
 #include <drm/drmP.h>
 #include <drm/drm_crtc_helper.h>
 #include "nouveau_drm.h"
@@ -656,7 +658,9 @@ static int nv17_tv_create_resources(struct drm_encoder *encoder,
 				nouveau_tv_norm);
 	}
 
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(3,19,0)
 	drm_mode_create_tv_properties(dev, num_tv_norms, nv17_tv_norm_names);
+#endif
 
 	drm_object_attach_property(&connector->base,
 					conf->tv_select_subconnector_property,
@@ -814,10 +818,16 @@ nv17_tv_create(struct drm_connector *connector, struct dcb_output *entry)
 	tv_enc->base.dcb = entry;
 	tv_enc->base.or = ffs(entry->or) - 1;
 
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(4,5,0)
 	drm_encoder_init(dev, encoder, &nv17_tv_funcs, DRM_MODE_ENCODER_TVDAC,
 			 NULL);
 	drm_encoder_helper_add(encoder, &nv17_tv_helper_funcs);
 	to_encoder_slave(encoder)->slave_funcs = &nv17_tv_slave_funcs;
+#else
+	drm_encoder_init(dev, encoder, &nv17_tv_funcs, DRM_MODE_ENCODER_TVDAC);
+	drm_encoder_helper_add(encoder, &nv17_tv_helper_funcs);
+	to_encoder_slave(encoder)->slave_funcs = (struct drm_encoder_slave_funcs *)&nv17_tv_slave_funcs;
+#endif
 
 	tv_enc->base.enc_save = nv17_tv_save;
 	tv_enc->base.enc_restore = nv17_tv_restore;

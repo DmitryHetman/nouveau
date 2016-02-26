@@ -549,8 +549,12 @@ nv04_dac_create(struct drm_connector *connector, struct dcb_output *entry)
 	else
 		helper = &nv04_dac_helper_funcs;
 
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(4,5,0)
 	drm_encoder_init(dev, encoder, &nv04_dac_funcs, DRM_MODE_ENCODER_DAC,
 			 NULL);
+#else
+	drm_encoder_init(dev, encoder, &nv04_dac_funcs, DRM_MODE_ENCODER_DAC);
+#endif
 	drm_encoder_helper_add(encoder, helper);
 
 	encoder->possible_crtcs = entry->heads;
